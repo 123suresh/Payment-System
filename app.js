@@ -7,6 +7,6 @@ app.use(cors());
 
 const payment = require('./routes/payment')
 
-app.use('/api', payment)
+app.use('/payment', payment)
 
 module.exports = app;

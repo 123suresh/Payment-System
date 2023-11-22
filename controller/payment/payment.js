@@ -1,6 +1,7 @@
 const Stripe = require("stripe")
 
 exports.userPayment = async (req, res) => {
+    console.log("user ", req)
   const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
   const {products} = req.body;
   const lineItems = products.map((product)=>({
