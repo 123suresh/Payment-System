@@ -2,7 +2,7 @@ const app = require('./app');
 
 const dotenv = require('dotenv');
 
-const connectDatabase = require("../Payment/config/database")
+// const connectDatabase = require("../Payment/config/database")
 
 //Handle uncaught exceptions
 process.on('uncaughtException', err => {
@@ -14,7 +14,7 @@ process.on('uncaughtException', err => {
 //setting up config file
 dotenv.config({path:'.env'})
 
-connectDatabase()
+// connectDatabase()
 
 const server = app.listen(process.env.PORT, () => {
     console.log(`Server started on PORT: ${process.env.PORT} in ${process.env.NODE_ENV} mode.`)
