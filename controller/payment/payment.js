@@ -7,6 +7,8 @@ app1.use(bodyParser.raw({ type: "application/json" }));
 const createPool = require("../../config/database");
 const pool = createPool();
 
+var http = require('http');
+
 let sessionID;
 
 // Endpoint for creating a Checkout Session
@@ -19,7 +21,7 @@ exports.userPayment = async (req, res) => {
         price_data: {
           currency: "usd",
           product_data: {
-            name: "book",
+            name: "rich dad and poor dad",
             images: [],
           },
           unit_amount: 10 * 100,
@@ -101,7 +103,31 @@ exports.webhooks = async (req, res) => {
           // Handle the results of the update query if needed
         });
 
-        // Perform additional actions based on the PaymentIntent status
+        var data = {
+          details:"hello this is noti"
+        };
+
+        var postData = JSON.stringify(data);
+      
+        var options = {
+          host: 'localhost',
+          port: 8082,
+          path: '/notification',
+          method: 'POST',
+          // headers: {
+          //   'Content-Type': 'application/x-www-form-urlencoded',
+          //   'Content-Length': Buffer.byteLength(postData)
+          // }
+        };
+      
+        var httpreq = http.request(options);
+        httpreq.write(postData);
+        httpreq.end();
+        //http post request to notification server start
+
+        // Updating notification through proxy
+        // app.notifyProxy();
+        
       } catch (error) {
         console.error("Error retrieving PaymentIntent:", error);
       }
