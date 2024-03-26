@@ -8,10 +8,49 @@ const createPool = require("../../config/database");
 const pool = createPool();
 
 var http = require('http');
+const { notifiProxy } = require("../../utils/proxyServer");
 
 let sessionID;
 
-// Endpoint for creating a Checkout Session
+const notiCall = () => {
+  var data = {
+    details: "hello this is noti from node js"
+  };
+
+  var postData = JSON.stringify(data);
+
+  var options = {
+    host: 'localhost',
+    port: 8082,
+    path: '/notification',
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json', 
+      'Content-Length': Buffer.byteLength(postData)
+    }
+  };
+
+  var httpreq = http.request(options, function (response) {
+    response.setEncoding('utf8');
+    let responseData = '';
+    response.on('data', function (chunk) {
+      responseData += chunk;
+    });
+    response.on('end', function () {
+    });
+  });
+
+  // Error handling for the request
+  httpreq.on('error', function (error) {
+    console.error('Error making request to notification server:', error);
+    res.status(500).send("Internal Server Error");
+  });
+
+  httpreq.write(postData);
+  // httpreq.end();
+}
+
+
 exports.userPayment = async (req, res) => {
   const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
   try {
@@ -34,11 +73,12 @@ exports.userPayment = async (req, res) => {
       payment_method_types: ["card"],
       line_items: lineItems,
       mode: "payment",
-      success_url: "http://localhost:3000/success",
+      success_url: "http://localhost:3000/movieList",
       cancel_url: "http://localhost:3000/cancel",
     });
 
-    const text =
+    if(session){
+      const text =
       "INSERT INTO payment(userid, email, session_id, payment_id, amount, status) VALUES($1, $2, $3, $4, $5, $6) RETURNING *";
     const values = [
       req.headers["x-user-id"],
@@ -52,17 +92,25 @@ exports.userPayment = async (req, res) => {
     pool.query(text, values, (error, results) => {
       if (error) {
         throw error;
+      }else{
+        notiCall()
       }
     });
 
     sessionID = session.id;
+
+    }
+
     res.json({ id: session.id });
-    // res.status(201).send(`Payment added with session id: ${session.id}`);
+
   } catch (error) {
     console.error("Error creating Checkout Session:", error);
     res.status(500).send("Internal Server Error");
   }
 };
+
+
+
 
 // Webhook endpoint for handling events
 exports.webhooks = async (req, res) => {
@@ -75,6 +123,7 @@ exports.webhooks = async (req, res) => {
       sig,
       "whsec_l5SN9IhXxJLpvRGIqk8H8UJoEzYjtyGt"
     );
+
   } catch (err) {
     console.error("Webhook error:", err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -85,61 +134,30 @@ exports.webhooks = async (req, res) => {
     case "checkout.session.completed":
       const session = event.data.object;
       const paymentIntentId = session.payment_intent;
-
-      // Retrieve the PaymentIntent and perform further actions
       try {
         const paymentIntent = await stripe.paymentIntents.retrieve(
           paymentIntentId
         );
-
-        const updateText =
+    
+        if(paymentIntentId){
+          const updateText =
           "UPDATE payment SET status = $1, payment_id = $2 WHERE session_id = $3 RETURNING *";
-        const updateValues = [paymentIntent.status, paymentIntentId, sessionID];
+        const updateValues = [paymentIntent.status, paymentIntentId, "sessionID"];
 
         pool.query(updateText, updateValues, (updateError, updateResults) => {
           if (updateError) {
             throw updateError;
           }
-          // Handle the results of the update query if needed
-        });
-
-        var data = {
-          details:"hello this is noti"
-        };
-
-        var postData = JSON.stringify(data);
-      
-        var options = {
-          host: 'localhost',
-          port: 8082,
-          path: '/notification',
-          method: 'POST',
-          // headers: {
-          //   'Content-Type': 'application/x-www-form-urlencoded',
-          //   'Content-Length': Buffer.byteLength(postData)
-          // }
-        };
-      
-        var httpreq = http.request(options);
-        httpreq.write(postData);
-        httpreq.end();
-        //http post request to notification server start
-
-        // Updating notification through proxy
-        // app.notifyProxy();
-        
+        })
+        } 
       } catch (error) {
         console.error("Error retrieving PaymentIntent:", error);
       }
-
       break;
-
-    // Handle other event types as needed
 
     default:
       return res.status(400).end();
   }
 
-  // Return a 200 response to acknowledge receipt of the event
   res.status(200).end();
 };
